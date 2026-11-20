@@ -75,8 +75,10 @@ timestamp requests come later, and retrofitting async is painful. Rules:
 - Subprocesses such as `openssl ts`: `asyncio.create_subprocess_exec`.
 - Filesystem: asyncio has no native file API and `aiofiles` is threads in
   disguise, so wrap reads, writes and hashing in `asyncio.to_thread` and
-  keep the sync helper small and private. Tiny metadata calls like
-  `Path.exists` are fine inline.
+  keep the sync helper small. Tiny metadata calls like `Path.exists` are
+  fine inline. `to_thread` shares the loop's default executor, which the
+  CLI caps at two workers; the tool moves a handful of files per session
+  and must stay light.
 - No `time.sleep`, no synchronous sockets, no blocking calls in the event
   loop. If something truly cannot be async, say so in a comment at the
   call.
