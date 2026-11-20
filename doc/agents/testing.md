@@ -19,12 +19,15 @@ operator needs.
 Tests live in `test/`, mirroring the package layout of `src/`: one test
 module per source module, in a subdirectory per package. `conftest.py`
 holds shared fixtures only. Cross-cutting checks such as the import graph
-sit at the top of `test/`.
+sit at the top of `test/`. Helpers used by more than one test module, and
+committed fixture files, live in the `test/support` package and are
+imported as `support.<module>`; test directories themselves are not
+packages.
 
 `./test.sh` enters the venv and runs `pytest test/ "$@"`. Pass a path or
 `-k name` to narrow. Configuration lives in `[tool.pytest.ini_options]` in
-`pyproject.toml`: `testpaths`, `pythonpath = ["src"]`, `asyncio_mode =
-"auto"`, and `--basetemp=sandbox/var/pytest`.
+`pyproject.toml`: `testpaths`, `pythonpath = ["src", "test"]`,
+`asyncio_mode = "auto"`, and `--basetemp=sandbox/var/pytest`.
 
 ## Never mock
 

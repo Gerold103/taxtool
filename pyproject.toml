@@ -13,15 +13,18 @@ src = ["src", "test"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "N"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["vault", "taxtool", "support"]
+
 [tool.mypy]
 strict = true
 python_version = "3.13"
-mypy_path = "src"
+mypy_path = "src:test"
 files = ["src", "test"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
-pythonpath = ["src"]
+pythonpath = ["src", "test"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "--basetemp=sandbox/var/pytest"
