@@ -2,7 +2,7 @@ import pytest
 
 from vault.errors import VaultError
 from vault.hashing import Digest, digest_bytes
-from vault.manifest import Changes, Manifest, check_relpath, diff
+from vault.manifest import Manifest, check_relpath
 
 A = digest_bytes(b"a")
 B = digest_bytes(b"b")
@@ -71,25 +71,7 @@ def test_unclean_paths_are_rejected(bad: str) -> None:
         Manifest({bad: A})
 
 
-def test_diff_reports_added_changed_deleted() -> None:
-    old = Manifest({"keep": A, "change": A, "gone": B})
-    new = Manifest({"keep": A, "change": B, "new": C})
-    changes = diff(old, new)
-    assert changes == Changes(
-        added={"new": C}, changed={"change": (A, B)}, deleted={"gone": B}
-    )
-    assert list(changes.paths()) == ["change", "gone", "new"]
-    assert changes
-
-
-def test_diff_of_equal_manifests_is_empty() -> None:
-    manifest = Manifest({"a": A})
-    changes = diff(manifest, manifest)
-    assert not changes
-    assert list(changes.paths()) == []
-
-
-def test_digest_is_compared_by_size_too() -> None:
-    old = Manifest({"a": Digest(A.sha256, 1)})
-    new = Manifest({"a": Digest(A.sha256, 2)})
-    assert diff(old, new).changed == {"a": (old.files["a"], new.files["a"])}
+def test_manifests_compare_by_content() -> None:
+    assert Manifest({"a": A, "b": B}) == Manifest({"b": B, "a": A})
+    assert Manifest({"a": A}) != Manifest({"a": Digest(A.sha256, 2)})
+    assert Manifest({"a": A}) != Manifest({"a": C})

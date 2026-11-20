@@ -6,7 +6,7 @@ the same tree always produces the same bytes and therefore the same hash;
 the hash of a manifest is what seals chain on.
 """
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 from typing import Any
@@ -79,30 +79,3 @@ def _digest_from(path: Any, entry: Any) -> Digest:
     ):
         raise VaultError(f"manifest entry for {path!r} is malformed")
     return Digest(entry["sha256"], entry["size"])
-
-
-@dataclass(frozen=True)
-class Changes:
-    """Difference between two manifests, by path."""
-
-    added: Mapping[str, Digest]
-    changed: Mapping[str, tuple[Digest, Digest]]
-    deleted: Mapping[str, Digest]
-
-    def __bool__(self) -> bool:
-        return bool(self.added or self.changed or self.deleted)
-
-    def paths(self) -> Iterable[str]:
-        return sorted({*self.added, *self.changed, *self.deleted})
-
-
-def diff(old: Manifest, new: Manifest) -> Changes:
-    """What `new` has that `old` had not, and the other way round."""
-    added = {p: d for p, d in new.files.items() if p not in old.files}
-    deleted = {p: d for p, d in old.files.items() if p not in new.files}
-    changed = {
-        p: (old.files[p], d)
-        for p, d in new.files.items()
-        if p in old.files and old.files[p] != d
-    }
-    return Changes(added, changed, deleted)
