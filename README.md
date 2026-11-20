@@ -17,6 +17,9 @@ the folder and standard tools such as `openssl` can verify it offline.
 No cloud, no accounts, no bank linking, no proprietary formats. Your data is
 a directory of text files and originals you can read without this tool.
 
+What a seal proves and what it cannot, including every known way the
+records could still be wrong, is written down in `doc/risks.md`.
+
 ## Status
 
 Early development. The data layout is settled; the tool that produces and

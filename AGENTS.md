@@ -33,6 +33,7 @@ src/vault/               storage layer, no tax knowledge
 src/taxtool/             application layer on top of vault
 test/                    pytest suite mirroring src/
 doc/agents/              task-specific guidance, see below
+doc/risks.md             what seals prove and every known way around them
 sandbox/                 scratch, ignored by git; sandbox/var/ for temp
 DESIGN.md, ROADMAP.md    agreed design and phases
 ```
@@ -58,6 +59,9 @@ data set will return to the repository once the tool can produce it.
 - The design was discussed at length before coding. When a design question
   comes up, check `DESIGN.md` first; if it is silent, ask rather than
   invent, and record the answer there.
+- A change that alters what can be proven, forged or lost must update
+  `doc/risks.md` in the same commit. The document is written for an
+  auditor and is deliberately candid.
 - Python is 3.13 from MacPorts (`/opt/local/bin/python3`). The system
   `/usr/bin/python3` is 3.9 and must not be used.
 
