@@ -1,0 +1,27 @@
+[project]
+name = "taxtool"
+version = "0.1.0"
+description = "Local, sealed bookkeeping for small German businesses"
+requires-python = ">=3.13"
+dependencies = ["pyyaml", "aiohttp"]
+
+[tool.ruff]
+line-length = 80
+target-version = "py313"
+src = ["src", "test"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "N"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+mypy_path = "src"
+files = ["src", "test"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "--basetemp=sandbox/var/pytest"

@@ -1,0 +1,6 @@
+#!/bin/bash
+# Entry point of the tool. Works through a symlink from anywhere.
+set -euo pipefail
+. "$(dirname "$(readlink -f "$0")")/tools/venv.sh"
+export PYTHONPATH="$TAXTOOL_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+exec python -m taxtool "$@"
