@@ -33,7 +33,12 @@ def digest_bytes(data: bytes) -> Digest:
     return Digest(hashlib.sha256(data).hexdigest(), len(data))
 
 
-def _digest_stream(path: Path, limit: int | None) -> Digest:
+def digest_stream(path: Path, limit: int | None) -> Digest:
+    """Blocking hash of a file or its first `limit` bytes.
+
+    For callers already running on a worker thread; everyone else uses
+    the async wrappers below.
+    """
     hasher = hashlib.sha256()
     remaining = limit
     size = 0
@@ -59,14 +64,14 @@ def _digest_stream(path: Path, limit: int | None) -> Digest:
 
 async def digest_file(path: Path) -> Digest:
     """Hash a whole file without holding it in memory."""
-    return await asyncio.to_thread(_digest_stream, path, None)
+    return await asyncio.to_thread(digest_stream, path, None)
 
 
 async def digest_prefix(path: Path, length: int) -> Digest:
     """Hash the first `length` bytes of a file, as seal markers record."""
     if length < 0:
         raise VaultError(f"{path}: prefix length must not be negative")
-    return await asyncio.to_thread(_digest_stream, path, length)
+    return await asyncio.to_thread(digest_stream, path, length)
 
 
 def blob_relpath(sha256: str) -> Path:
