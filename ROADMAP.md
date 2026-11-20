@@ -6,6 +6,11 @@
 - Local HMAC authority for tests and examples; RFC 3161 authorities for
   real use.
 - `periods/index.yaml`, manifests, `state.yaml` with FIFO lots.
+- `.taxignore` at the data root, one relative path per line, created by
+  `init` with the human files (`README.md`, `HOWTO.md`, `templates/`).
+  Users extend it at their own risk. `.tax/` is always excluded and
+  cannot be un-ignored; `.taxignore` itself is sealed so additions show
+  up as changes. Exact paths only; no globs until someone needs them.
 
 ## Phase 2: hand-over and housekeeping
 - `export csv` in the consultant's two-table layout; `export euer`;
