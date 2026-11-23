@@ -35,7 +35,7 @@ class LocalHmacAuthority:
 
     def _key(self) -> bytes:
         try:
-            text = self.key_file.read_text().strip()
+            text = self.key_file.read_text(encoding="utf-8").strip()
             key = bytes.fromhex(text)
         except (OSError, ValueError) as exc:
             raise VaultError(
@@ -66,7 +66,7 @@ class LocalHmacAuthority:
         # PyYAML breaks a long value only after passing the width; 60
         # leaves room for the overshoot so no line exceeds 80 columns.
         text = yaml.safe_dump(token, sort_keys=False, width=60)
-        (proof_dir / TOKEN_FILE).write_text(text)
+        (proof_dir / TOKEN_FILE).write_text(text, encoding="utf-8")
 
     async def stamp(self, root: str, now: datetime, proof_dir: Path) -> None:
         await asyncio.to_thread(self._stamp, root, now, proof_dir)
@@ -75,7 +75,7 @@ class LocalHmacAuthority:
         path = proof_dir / TOKEN_FILE
         if not path.is_file():
             raise VaultError(f"authority {self.name}: no proof at {path}")
-        token = yaml.safe_load(path.read_text())
+        token = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(token, dict) or token.get("type") != TYPE:
             raise VaultError(f"authority {self.name}: {path} is not a {TYPE}")
         if token.get("hash") != check_root(root):

@@ -73,7 +73,7 @@ def load(path: Path) -> StatCache:
     if not path.is_file():
         return StatCache()
     try:
-        header, *lines = path.read_text().splitlines()
+        header, *lines = path.read_text(encoding="utf-8").splitlines()
         name, version, started_ns = header.split(" ")
         if name != HEADER or int(version) != VERSION:
             raise ValueError(header)
@@ -93,5 +93,5 @@ def save(path: Path, cache: StatCache) -> None:
         lines.append(f"{e.sha256} {e.size} {e.mtime_ns} {rel}")
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_name(path.name + ".tmp")
-    temp.write_text("\n".join(lines) + "\n")
+    temp.write_text("\n".join(lines) + "\n", encoding="utf-8")
     os.replace(temp, path)

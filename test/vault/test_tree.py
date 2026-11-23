@@ -56,6 +56,26 @@ async def test_scan_excludes_files_and_whole_directories(
     ]
 
 
+async def test_non_ascii_names_survive_scan_yaml_and_cache(
+    tmp_path: Path,
+) -> None:
+    files = {
+        "docs/Rechnung Müller GmbH.pdf": b"umlaut",
+        "docs/Счёт № 7.pdf": b"cyrillic",
+        "docs/Ελλάδα/τιμολόγιο.pdf": b"greek",
+    }
+    populate(tmp_path, files)
+    cache = tmp_path / "state" / "cache"
+    manifest = await scan(tmp_path, exclude={"state"}, cache=cache)
+    assert set(manifest.files) == set(files)
+    text = manifest.to_yaml()
+    assert "Rechnung Müller GmbH.pdf" in text
+    assert "Счёт № 7.pdf" in text
+    assert Manifest.from_yaml(text) == manifest
+    assert await scan(tmp_path, exclude={"state"}, cache=cache) == manifest
+    assert not await changes(tmp_path, manifest, manifest)
+
+
 async def test_scan_rejects_unclean_exclude(tmp_path: Path) -> None:
     with pytest.raises(VaultError, match="clean relative path"):
         await scan(tmp_path, {"../outside"})

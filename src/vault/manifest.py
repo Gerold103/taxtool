@@ -56,7 +56,11 @@ class Manifest:
             },
         }
         text: str = yaml.safe_dump(
-            data, sort_keys=True, default_flow_style=False, width=80
+            data,
+            sort_keys=True,
+            default_flow_style=False,
+            width=80,
+            allow_unicode=True,
         )
         return text
 
