@@ -56,9 +56,12 @@ load low: one can work on sealing without knowing how periods work, and an
 auditor can read the storage layer without reading tax law.
 
 `vault` knows bytes, paths, hashes, manifests, seals and proofs. It must
-not know what an event, a period, an invoice or a tax year is. If a change
-to `vault` needs a tax concept, the concept belongs in `taxtool` and `vault`
-gets a generic parameter (a predicate, a list of paths, a callback) instead.
+not know what an event, a period, an invoice or a tax year is, nor the
+name of the directory it is stored in. If a change to `vault` needs an
+application concept, the concept belongs in `taxtool` and `vault` gets a
+plain generic parameter instead, such as a set of paths to exclude or the
+directory to write into. Not a predicate or a callback: the vault reports
+facts about bytes and paths, and `taxtool` decides what they mean.
 
 Existing code is changed freely when that helps reuse it, and deleted when
 superseded. Nothing is kept "for backward compatibility" or "for later",
