@@ -1,10 +1,17 @@
-"""The import graph of src/ must have no cycles and respect the layers."""
+"""The import graph of src/ must have no cycles and respect the layers,
+and the storage layer must stay ignorant of the application above it."""
 
 import ast
+import re
 from collections.abc import Iterator
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parent.parent / "src"
+REPO = Path(__file__).resolve().parent.parent
+SRC = REPO / "src"
+VAULT_DIRS = (SRC / "vault", REPO / "test" / "vault")
+# A word boundary so that "syntax" passes while "tax", ".tax" and
+# "taxtool" are caught.
+APPLICATION_WORD = re.compile(r"\btax", re.IGNORECASE)
 
 
 def module_name(path: Path) -> str:
@@ -76,3 +83,15 @@ def test_vault_does_not_import_taxtool() -> None:
         if name.startswith("vault"):
             bad = {d for d in deps if d.startswith("taxtool")}
             assert not bad, f"{name} imports {sorted(bad)}"
+
+
+def test_vault_never_mentions_the_application() -> None:
+    """The vault could be its own repository: not even the name of the
+    directory it lives in may appear in its code or tests."""
+    hits: list[str] = []
+    for directory in VAULT_DIRS:
+        for path in sorted(directory.rglob("*.py")):
+            for number, line in enumerate(path.read_text().splitlines(), 1):
+                if APPLICATION_WORD.search(line):
+                    hits.append(f"{path.relative_to(REPO)}:{number}")
+    assert not hits, hits

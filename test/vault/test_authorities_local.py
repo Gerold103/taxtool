@@ -16,7 +16,7 @@ NOW = datetime(2026, 10, 4, 17, 45, tzinfo=UTC)
 
 @pytest.fixture
 def key_file(tmp_path: Path) -> Path:
-    path = tmp_path / ".tax" / "authorities" / "local" / "key"
+    path = tmp_path / "vault" / "authorities" / "local" / "key"
     path.parent.mkdir(parents=True)
     path.write_text(os.urandom(32).hex() + "\n")
     return path
@@ -29,7 +29,7 @@ def authority(key_file: Path) -> LocalHmacAuthority:
 
 @pytest.fixture
 def proof_dir(tmp_path: Path) -> Path:
-    path = tmp_path / ".tax" / "seals" / "000001" / "proof" / "local"
+    path = tmp_path / "vault" / "seals" / "000001" / "proof" / "local"
     path.mkdir(parents=True)
     return path
 

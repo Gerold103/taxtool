@@ -11,7 +11,7 @@ from vault.objects import ObjectStore, check_same_content
 
 @pytest.fixture
 def store(tmp_path: Path) -> ObjectStore:
-    return ObjectStore(tmp_path / ".tax" / "objects")
+    return ObjectStore(tmp_path / "vault" / "objects")
 
 
 def overwrite_blob(store: ObjectStore, sha256: str, data: bytes) -> None:

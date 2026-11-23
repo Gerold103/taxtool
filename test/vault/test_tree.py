@@ -39,7 +39,7 @@ async def test_scan_excludes_files_and_whole_directories(
     populate(
         tmp_path,
         {
-            ".tax/objects/ab/cd": b"blob",
+            ".vault/objects/ab/cd": b"blob",
             "README.md": b"human",
             "README.md.bak": b"not the same entry",
             "docs/a.pdf": b"doc",
@@ -47,7 +47,7 @@ async def test_scan_excludes_files_and_whole_directories(
             "periods/index.yaml": b"root-level, stays",
         },
     )
-    exclude = {".tax", "README.md", "periods/2025"}
+    exclude = {".vault", "README.md", "periods/2025"}
     manifest = await scan(tmp_path, exclude)
     assert list(manifest.files) == [
         "README.md.bak",

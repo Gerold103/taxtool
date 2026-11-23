@@ -39,7 +39,7 @@ def authority(tsa: LocalTsa) -> Rfc3161Authority:
 
 @pytest.fixture
 def proof_dir(tmp_path: Path) -> Path:
-    path = tmp_path / ".tax" / "seals" / "000001" / "proof" / "testtsa"
+    path = tmp_path / "vault" / "seals" / "000001" / "proof" / "testtsa"
     path.mkdir(parents=True)
     return path
 
