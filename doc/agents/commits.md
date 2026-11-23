@@ -31,7 +31,7 @@ That is a soft limit, exceeded only when genuinely impossible; it is what
 short name; do not invent a new one for every file. Current vocabulary:
 
 ```
-vault  hashing  objects  manifest  tree  seal  authority
+vault  hashing  objects  manifest  tree  cache  seal  authority
 taxtool  events  log  periods  ledger  cli
 test  docs  build
 ```

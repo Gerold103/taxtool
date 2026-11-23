@@ -17,6 +17,9 @@ from vault.errors import VaultError
 from vault.hashing import Digest, is_sha256_hex
 
 VERSION = 1
+# Newline, tab and friends: they would break line-oriented files that
+# list paths, such as the stat cache.
+CONTROL_CHARACTERS = frozenset(chr(code) for code in range(32))
 
 
 def check_relpath(path: str) -> str:
@@ -24,6 +27,7 @@ def check_relpath(path: str) -> str:
     pure = PurePosixPath(path)
     if (
         not path
+        or any(c in CONTROL_CHARACTERS for c in path)
         or pure.is_absolute()
         or str(pure) != path
         or ".." in pure.parts

@@ -7,10 +7,14 @@ an append is legitimate at a given path is for the caller to decide.
 """
 
 import asyncio
+import os
+import stat
+import time
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from vault.cache import Entry, StatCache, load, save
 from vault.errors import VaultError
 from vault.hashing import Digest, digest_prefix, digest_stream
 from vault.manifest import Manifest, check_relpath
@@ -20,42 +24,56 @@ def _excluded(rel: str, exclude: Collection[str]) -> bool:
     return any(rel == e or rel.startswith(e + "/") for e in exclude)
 
 
-def _collect(root: Path, exclude: Collection[str]) -> list[tuple[str, Path]]:
-    found: list[tuple[str, Path]] = []
+def _collect(
+    root: Path, exclude: Collection[str]
+) -> list[tuple[str, Path, os.stat_result]]:
+    found: list[tuple[str, Path, os.stat_result]] = []
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(root).as_posix()
         if _excluded(rel, exclude):
             continue
-        if path.is_symlink():
+        st = path.lstat()
+        if stat.S_ISLNK(st.st_mode):
             raise VaultError(f"{path}: symlinks are not allowed in the tree")
-        if path.is_dir():
+        if stat.S_ISDIR(st.st_mode):
             continue
-        if not path.is_file():
+        if not stat.S_ISREG(st.st_mode):
             raise VaultError(f"{path}: not a regular file")
-        found.append((rel, path))
+        found.append((rel, path, st))
     return found
 
 
-def _scan(root: Path, exclude: Collection[str]) -> Manifest:
+def _scan(root: Path, exclude: Collection[str], cache: Path | None) -> Manifest:
     if not root.is_dir():
         raise VaultError(f"{root}: not a directory")
     for entry in exclude:
         check_relpath(entry)
-    files = {
-        rel: digest_stream(path, None) for rel, path in _collect(root, exclude)
-    }
+    started_ns = time.time_ns()
+    known = load(cache) if cache else StatCache()
+    files: dict[str, Digest] = {}
+    entries: dict[str, Entry] = {}
+    for rel, path, st in _collect(root, exclude):
+        digest = known.lookup(rel, st) or digest_stream(path, None)
+        files[rel] = digest
+        entries[rel] = Entry(st.st_size, st.st_mtime_ns, digest.sha256)
+    if cache:
+        save(cache, StatCache(started_ns, entries))
     return Manifest(files)
 
 
-async def scan(root: Path, exclude: Collection[str] = ()) -> Manifest:
+async def scan(
+    root: Path, exclude: Collection[str] = (), cache: Path | None = None
+) -> Manifest:
     """Hash every regular file under root, except excluded paths.
 
     `exclude` lists relative POSIX paths of files or directories to leave
     out; a directory is skipped with everything below it. Symlinks and
     special files are errors, because a sealed tree must be plain files
-    whose bytes are what the hash covers.
+    whose bytes are what the hash covers. With `cache`, digests of files
+    whose size and mtime are unchanged since the previous scan are reused
+    and the file is rewritten for the next one; see vault.cache.
     """
-    return await asyncio.to_thread(_scan, root, exclude)
+    return await asyncio.to_thread(_scan, root, exclude, cache)
 
 
 @dataclass(frozen=True)
