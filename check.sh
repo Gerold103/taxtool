@@ -7,9 +7,8 @@ ruff format --check src test
 ruff check src test
 mypy
 pytest
-# Every tracked text file keeps to 80 columns.
-if git ls-files -z | xargs -0 awk 'length > 80 {print FILENAME ":" FNR}' \
-    | grep .; then
+# Every tracked text file keeps to 80 columns; -I skips binary files.
+if git grep -I -n -E '^.{81,}' -- .; then
     echo "lines over 80 columns" >&2
     exit 1
 fi
