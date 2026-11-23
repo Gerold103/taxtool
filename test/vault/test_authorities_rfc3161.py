@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from support.local_tsa import CHAIN, DATA, LocalTsa
-from vault.authorities import Authority
+from vault.authorities import Authority, Complete
 from vault.authorities.rfc3161 import (
     QUERY_FILE,
     TOKEN_FILE,
@@ -53,11 +53,15 @@ async def test_stamp_writes_query_and_token_and_verifies(
     authority: Rfc3161Authority, proof_dir: Path, tsa: LocalTsa
 ) -> None:
     before = datetime.now(UTC).replace(microsecond=0)
-    await authority.stamp(ROOT, before, proof_dir)
+    stamped = await authority.stamp(ROOT, before, proof_dir)
     assert (proof_dir / QUERY_FILE).read_bytes() == tsa.requests[0]
     assert (proof_dir / TOKEN_FILE).stat().st_size > 1000
-    stamped = await authority.verify(ROOT, proof_dir)
-    assert before <= stamped <= datetime.now(UTC)
+    assert isinstance(stamped, Complete)
+    assert before <= stamped.time <= datetime.now(UTC)
+    assert await authority.verify(ROOT, proof_dir) == stamped
+    files = sorted(proof_dir.iterdir())
+    assert await authority.complete(ROOT, proof_dir) == stamped
+    assert sorted(proof_dir.iterdir()) == files
 
 
 async def test_query_carries_the_root_hash_and_nothing_else(

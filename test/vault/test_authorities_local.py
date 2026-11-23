@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from vault.authorities import Authority, check_root, check_time
+from vault.authorities import Authority, Complete, check_root, check_time
 from vault.authorities.local_hmac import TOKEN_FILE, LocalHmacAuthority
 from vault.errors import VaultError
 from vault.hashing import digest_bytes
@@ -46,11 +46,14 @@ def test_satisfies_protocol(authority: LocalHmacAuthority) -> None:
     assert held.name == "local"
 
 
-async def test_stamp_then_verify_returns_the_time(
+async def test_stamp_is_complete_at_once_and_stays_so(
     authority: LocalHmacAuthority, proof_dir: Path
 ) -> None:
-    await authority.stamp(ROOT, NOW, proof_dir)
-    assert await authority.verify(ROOT, proof_dir) == NOW
+    assert await authority.stamp(ROOT, NOW, proof_dir) == Complete(NOW)
+    assert await authority.verify(ROOT, proof_dir) == Complete(NOW)
+    before = sorted(proof_dir.iterdir())
+    assert await authority.complete(ROOT, proof_dir) == Complete(NOW)
+    assert sorted(proof_dir.iterdir()) == before
 
 
 async def test_token_is_readable_yaml(

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import yaml
 
-from vault.authorities import check_root, check_time
+from vault.authorities import Complete, check_root, check_time
 from vault.errors import VaultError
 
 TYPE = "local-hmac-sha256"
@@ -68,10 +68,16 @@ class LocalHmacAuthority:
         text = yaml.safe_dump(token, sort_keys=False, width=60)
         (proof_dir / TOKEN_FILE).write_text(text, encoding="utf-8")
 
-    async def stamp(self, root: str, now: datetime, proof_dir: Path) -> None:
+    async def stamp(
+        self, root: str, now: datetime, proof_dir: Path
+    ) -> Complete:
         await asyncio.to_thread(self._stamp, root, now, proof_dir)
+        return Complete(check_time(now))
 
-    def _verify(self, root: str, proof_dir: Path) -> datetime:
+    async def complete(self, root: str, proof_dir: Path) -> Complete:
+        return await self.verify(root, proof_dir)
+
+    def _verify(self, root: str, proof_dir: Path) -> Complete:
         path = proof_dir / TOKEN_FILE
         if not path.is_file():
             raise VaultError(f"authority {self.name}: no proof at {path}")
@@ -92,11 +98,11 @@ class LocalHmacAuthority:
                 f"authority {self.name}: {path} has an invalid mac"
             )
         try:
-            return check_time(datetime.fromisoformat(time))
+            return Complete(check_time(datetime.fromisoformat(time)))
         except ValueError as exc:
             raise VaultError(
                 f"authority {self.name}: {path} has an unreadable time"
             ) from exc
 
-    async def verify(self, root: str, proof_dir: Path) -> datetime:
+    async def verify(self, root: str, proof_dir: Path) -> Complete:
         return await asyncio.to_thread(self._verify, root, proof_dir)

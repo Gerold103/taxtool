@@ -16,7 +16,7 @@ from pathlib import Path
 
 import aiohttp
 
-from vault.authorities import check_root
+from vault.authorities import Complete, check_root
 from vault.errors import VaultError
 
 QUERY_FILE = "request.tsq"
@@ -95,7 +95,9 @@ class Rfc3161Authority:
         except aiohttp.ClientError as exc:
             raise self._error(f"request to {self.url} failed: {exc}") from exc
 
-    async def stamp(self, root: str, now: datetime, proof_dir: Path) -> None:
+    async def stamp(
+        self, root: str, now: datetime, proof_dir: Path
+    ) -> Complete:
         check_root(root)
         query_path = proof_dir / QUERY_FILE
         token_path = proof_dir / TOKEN_FILE
@@ -107,9 +109,12 @@ class Rfc3161Authority:
         token = await self._post(query)
         await asyncio.to_thread(token_path.write_bytes, token)
         # Trust nothing the server sent until it verifies locally.
-        await self.verify(root, proof_dir)
+        return await self.verify(root, proof_dir)
 
-    async def verify(self, root: str, proof_dir: Path) -> datetime:
+    async def complete(self, root: str, proof_dir: Path) -> Complete:
+        return await self.verify(root, proof_dir)
+
+    async def verify(self, root: str, proof_dir: Path) -> Complete:
         check_root(root)
         token_path = proof_dir / TOKEN_FILE
         if not token_path.is_file():
@@ -130,4 +135,4 @@ class Rfc3161Authority:
             "-CAfile", str(self.chain_file),
             "-attime", str(int(time.timestamp())),
         )  # fmt: skip
-        return time
+        return Complete(time)
