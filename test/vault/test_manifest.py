@@ -62,7 +62,19 @@ def test_malformed_yaml_is_rejected(text: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "bad", ["", "/abs", "a/../b", "./a", "a/", "a//b", "a/./b", "a\nb", "a\tb"]
+    "bad",
+    [
+        "",
+        ".",
+        "/abs",
+        "a/../b",
+        "./a",
+        "a/",
+        "a//b",
+        "a/./b",
+        "a\nb",
+        "a\tb",
+    ],
 )
 def test_unclean_paths_are_rejected(bad: str) -> None:
     with pytest.raises(VaultError, match="clean relative path"):

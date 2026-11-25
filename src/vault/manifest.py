@@ -26,7 +26,7 @@ def check_relpath(path: str) -> str:
     """A manifest key: relative, normalised, POSIX, not escaping upwards."""
     pure = PurePosixPath(path)
     if (
-        not path
+        not pure.parts
         or any(c in CONTROL_CHARACTERS for c in path)
         or pure.is_absolute()
         or str(pure) != path
