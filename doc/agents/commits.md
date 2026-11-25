@@ -32,7 +32,7 @@ short name; do not invent a new one for every file. Current vocabulary:
 
 ```
 vault  hashing  objects  manifest  tree  cache  seal  authority  bitcoin
-taxtool  events  log  periods  ledger  cli
+ots  taxtool  events  log  periods  ledger  cli
 test  docs  build
 ```
 
