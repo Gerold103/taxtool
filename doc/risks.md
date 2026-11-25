@@ -110,6 +110,42 @@ supervision whose certificates appear in the EU Trusted List, and
 optionally an anchor in a public blockchain, which no single operator
 controls.
 
+## Bitcoin anchor limits
+
+Likelihood: plausible for the time gap, remote for the rest. Severity: a
+reader could take the anchor for more than it is.
+
+An OpenTimestamps proof shows that the root hash is a leaf of the merkle
+tree in one Bitcoin block header, which is saved next to the proof. The
+header passes its own proof of work, and that is all that can be checked
+offline. Three limits follow.
+
+The height is a claim. The proof names a block height, but nothing in
+the saved header proves it is the block at that height; a forged header
+with a trivial amount of work could be saved next to a forged proof.
+An auditor confirms the saved header's hash against any block explorer
+or a full node, which takes seconds and turns the claim into evidence.
+The hash is `block-header.bin` hashed twice with SHA-256 and shown
+reversed, as every explorer displays it.
+
+The time is the block time. A block's timestamp is set by its miner and
+is accurate to roughly an hour by Bitcoin's own rules, and the block
+itself comes hours after the seal, since calendars batch submissions.
+The anchor therefore proves "existed no later than this block", an
+upper bound, not the sealing minute. The sealing time in `stamp.yaml`
+is the owner's own claim, and the calendar's pending attestation holds
+no time at all, only the calendar's address. An RFC 3161 authority on
+the same seal supplies the precise time from the operator's clock.
+
+A proof can stay pending. Until the calendar's transaction is mined the
+proof is only the calendar's promise, `root.pending.ots`, which proves
+nothing on its own. If the calendar disappears before that, the proof
+never completes. Sealing therefore attempts at least one authority but
+requires no proof to be complete, and a dead proof can be abandoned
+explicitly, leaving a marker file that the next seal covers. A seal
+whose proofs are all abandoned is a weak link, not a broken chain: the
+next seal's authorities still cover its root hash.
+
 ## Algorithm and certificate aging
 
 Likelihood: certain over decades. Severity: an old token might no longer
