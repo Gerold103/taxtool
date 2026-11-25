@@ -6,7 +6,7 @@ import pytest
 from vault.errors import VaultError
 from vault.hashing import Digest, digest_bytes
 from vault.manifest import Manifest
-from vault.tree import Changes, changes, scan
+from vault.scan import Changes, changes, scan
 
 A = digest_bytes(b"a")
 B = digest_bytes(b"b")

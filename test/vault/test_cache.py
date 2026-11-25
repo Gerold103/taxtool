@@ -7,7 +7,7 @@ import pytest
 from vault.cache import HEADER, Entry, StatCache, load, save
 from vault.errors import VaultError
 from vault.hashing import Digest, digest_bytes
-from vault.tree import scan
+from vault.scan import scan
 
 A = digest_bytes(b"aaaa")
 B = digest_bytes(b"bbbb")
