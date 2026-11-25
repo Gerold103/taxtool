@@ -55,7 +55,7 @@ Separate the title from the body with a blank line, and split the body into
 short paragraphs, one thought each. A trivial commit may have no body; a
 non-obvious one must have one.
 
-Reference design decisions by pointing at `DESIGN.md` sections rather than
+Reference design decisions by pointing at `ROADMAP.md` sections rather than
 re-explaining them. Never paste command output or file listings.
 
 Title, body and diff use ASCII characters only, unless something explicitly

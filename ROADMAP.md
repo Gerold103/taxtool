@@ -1,24 +1,53 @@
 # Roadmap
 
+## Agreed design
+
+Decisions taken in discussion, recorded here so that code follows them
+and nobody re-derives them. `doc/risks.md` holds what they prove.
+
+- The data directory holds `.tax/`, owned by taxtool, next to the user's
+  files. Inside it, `.tax/.vault/` is owned by the vault: seals, proofs,
+  the stat cache. The vault receives the data root and its own state
+  directory as parameters and knows neither the name `.tax` nor taxes.
+- A seal covers every file under the data root, `.tax/` included, except
+  the vault's own stat cache. Earlier seals are ordinary files to the
+  next seal, so a completed proof, an abandoned proof or a changed config
+  shows up as a change the next seal records. Each seal names the
+  previous seal's root hash, forming one chain.
+- The vault reports the difference since the last seal as events: the
+  specific ones it recognises in its own files, such as a proof
+  completed, a proof abandoned, a seal tampered, a seal removed, the
+  chain extended or cut, and the generic file added, changed or deleted
+  for everything else. taxtool interprets them, for example a changed
+  `config.yaml`, and chooses the wording of `status`.
+- Sealing attempts at least one configured authority and requires none
+  to be complete: a Bitcoin-anchored proof is Pending for hours. A
+  pending proof is completed later, for one chosen seal or for all. A
+  proof whose authority has died is abandoned explicitly, which writes a
+  marker file next to it; nothing in a proof directory is ever rewritten.
+- The local HMAC authority is the fully offline authority and is
+  configurable by users like any other; it proves nothing to third
+  parties. RFC 3161 supplies the precise time, OpenTimestamps the
+  "existed no later than this block" bound. Both are wanted on a seal.
+
 ## Phase 1: records and seals
 - `init`, `doc add`, `check`, `status`, `rotate`, `seal`, `verify`.
 - Manual event entry from `templates/`.
-- Local HMAC authority for tests and examples; RFC 3161 authorities for
-  real use.
+- Local HMAC, RFC 3161 and OpenTimestamps authorities; `seal complete`
+  and abandoned-proof markers.
 - `periods/index.yaml`, manifests, `state.yaml` with FIFO lots.
 - `.taxignore` at the data root, one relative path per line, created by
   `init` with the human files (`README.md`, `HOWTO.md`, `templates/`).
-  Users extend it at their own risk. `.tax/` is always excluded and
-  cannot be un-ignored; `.taxignore` itself is sealed so additions show
-  up as changes. Exact paths only; no globs until someone needs them.
+  Users extend it at their own risk. `.taxignore` itself is sealed so
+  additions show up as changes. Exact paths only; no globs until someone
+  needs them.
 
 ## Phase 2: hand-over and housekeeping
 - `export csv` in the consultant's two-table layout; `export euer`;
   `export fifo`.
 - `export gobd`: CSV plus `index.xml` validated against the GDPdU DTD.
 - `checkpoint`, `archive`, `expire`, `gc`, `checkout`, `diff`, `log`.
-- `seal collect`, `seal attach`, abandoned-authority markers.
-- OpenTimestamps as optional second authority.
+- `seal collect`, `seal attach`.
 
 ## Phase 3: e-invoices
 - `invoice render ID`: from an `invoice` event and the counterparty's

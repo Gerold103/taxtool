@@ -35,7 +35,7 @@ test/                    pytest suite mirroring src/
 doc/agents/              task-specific guidance, see below
 doc/risks.md             what seals prove and every known way around them
 sandbox/                 scratch, ignored by git; sandbox/var/ for temp
-DESIGN.md, ROADMAP.md    agreed design and phases
+ROADMAP.md               agreed design and phases
 ```
 
 `src/vault/` knows bytes, paths, hashes, manifests, seals and proofs, and
@@ -45,7 +45,7 @@ events, logs, periods, the FIFO ledger and the command line.
 The data directory a user works in is not in this repository. Its layout:
 a `.tax/` directory holding config, object store, seals and authority
 material, next to `config.yaml`, `master.yaml`, `log/`, `docs/`,
-`periods/` and `templates/`. `DESIGN.md` describes it; a generated example
+`periods/` and `templates/`. `ROADMAP.md` describes it; a generated example
 data set will return to the repository once the tool can produce it.
 
 ### Working here
@@ -57,7 +57,7 @@ data set will return to the repository once the tool can produce it.
 - Commit only when the user asks. Never `git add -A`.
 - Temporary files go under `sandbox/var/`; pytest puts `tmp_path` there.
 - The design was discussed at length before coding. When a design question
-  comes up, check `DESIGN.md` first; if it is silent, ask rather than
+  comes up, check `ROADMAP.md` first; if it is silent, ask rather than
   invent, and record the answer there.
 - A change that alters what can be proven, forged or lost must update
   `doc/risks.md` in the same commit. The document is written for an
