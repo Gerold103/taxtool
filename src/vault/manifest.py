@@ -74,10 +74,12 @@ class Manifest:
             files = {}
         if not isinstance(files, dict):
             raise VaultError("not a manifest: files is not a mapping")
-        return cls({str(p): _digest_from(p, e) for p, e in files.items()})
+        return cls({str(p): parse_digest(p, e) for p, e in files.items()})
 
 
-def _digest_from(path: Any, entry: Any) -> Digest:
+def parse_digest(path: Any, entry: Any) -> Digest:
+    """The Digest in a YAML entry `{sha256: ..., size: ...}`; other keys
+    are the caller's business."""
     if (
         not isinstance(entry, dict)
         or not isinstance(entry.get("sha256"), str)
