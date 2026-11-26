@@ -116,8 +116,8 @@ because they are the vocabulary of the module.
 - Modules and functions `snake_case`, classes `CapWords`, constants
   `UPPER_CASE`. Names say what the thing is, not its type: `manifest`, not
   `manifest_dict`.
-- One module, one topic, roughly under 300 lines. Split by topic, not by
-  size.
+- One module, one topic. Split by topic, never by size: a line count has
+  no value of its own.
 - Errors: raise specific exceptions from a small hierarchy per package
   (`VaultError`, `TaxError`), with messages an end user can act on. Never
   swallow an exception without handling it.
