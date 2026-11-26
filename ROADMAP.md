@@ -8,7 +8,7 @@ and nobody re-derives them. `doc/risks.md` holds what they prove.
 - The data directory holds `.tax/`, owned by taxtool, next to the user's
   files. Inside it, `.tax/.vault/` is owned by the vault: the object
   store, seals and proofs, the authorities' configuration and material,
-  the stat cache. The vault receives the data root and its own state
+  the stat cache. The vault receives the data root and its own home
   directory as parameters and knows neither the name `.tax` nor taxes.
 - A seal covers every file under the data root, `.tax/` included, except
   the object store and the stat cache under `.tax/.vault/`. Earlier
@@ -35,9 +35,13 @@ and nobody re-derives them. `doc/risks.md` holds what they prove.
 - Phase 2 builds on the trees: `checkout` rebuilds the data root as it
   was at a seal from the trees, the store and truncated logs, for which
   `seal` stores a copy of every changed file that is not an append of
-  its previous version. `archive` and `expire` work per subtree, and
-  `export` can hand over a subtree with the listings on its path to the
-  root as a self-contained proof of that subtree.
+  its previous version. `diff` shows the content difference between two
+  seals, or a seal and the working tree: line by line for text files
+  such as logs and config, by hash and size for documents, not merely
+  which paths changed and what event that is. `archive` and `expire`
+  work per subtree, and `export` can hand over a subtree with the
+  listings on its path to the root as a self-contained proof of that
+  subtree.
 - The vault reports the difference since the last seal as events: the
   specific ones it recognises in its own files, such as a proof
   completed, a proof abandoned, a seal tampered, a seal removed, the
