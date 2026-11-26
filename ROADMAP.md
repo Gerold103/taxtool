@@ -6,14 +6,38 @@ Decisions taken in discussion, recorded here so that code follows them
 and nobody re-derives them. `doc/risks.md` holds what they prove.
 
 - The data directory holds `.tax/`, owned by taxtool, next to the user's
-  files. Inside it, `.tax/.vault/` is owned by the vault: seals, proofs,
+  files. Inside it, `.tax/.vault/` is owned by the vault: the object
+  store, seals and proofs, the authorities' configuration and material,
   the stat cache. The vault receives the data root and its own state
   directory as parameters and knows neither the name `.tax` nor taxes.
 - A seal covers every file under the data root, `.tax/` included, except
-  the vault's own stat cache. Earlier seals are ordinary files to the
-  next seal, so a completed proof, an abandoned proof or a changed config
-  shows up as a change the next seal records. Each seal names the
-  previous seal's root hash, forming one chain.
+  the object store and the stat cache under `.tax/.vault/`. Earlier
+  seals are ordinary files to the next seal, so a completed proof, an
+  abandoned proof or a changed config shows up as a change the next seal
+  records. Each seal names the previous seal's root hash, forming one
+  chain, and names the authorities it attempted, so that a missing proof
+  is a finding and not an unknown.
+- A seal records the data root as tree objects, git's model: one YAML
+  listing per directory, each entry naming a file or a child listing by
+  digest, stored in the object store. The seal names the root listing's
+  digest. Every seal therefore describes the complete data root and
+  verifies on its own, while an unchanged subtree is one object shared
+  by every seal since it last changed. A full manifest per seal was
+  rejected for size, and a list of changes per seal because it puts each
+  file's hash in exactly one seal, where one lost record hides an
+  alteration. Deduplication lives in the store, below the proof, so the
+  storage encoding can change later without touching any seal.
+- There is one object store, `.tax/.vault/objects/`, for taxtool's
+  document blobs and the vault's tree objects. Its contents are reached
+  by hash from seals and logs, which is why the scan excludes it. Nothing
+  in it is deleted before phase 2, where `gc` keeps whatever any seal's
+  root or any document reference still reaches.
+- Phase 2 builds on the trees: `checkout` rebuilds the data root as it
+  was at a seal from the trees, the store and truncated logs, for which
+  `seal` stores a copy of every changed file that is not an append of
+  its previous version. `archive` and `expire` work per subtree, and
+  `export` can hand over a subtree with the listings on its path to the
+  root as a self-contained proof of that subtree.
 - The vault reports the difference since the last seal as events: the
   specific ones it recognises in its own files, such as a proof
   completed, a proof abandoned, a seal tampered, a seal removed, the

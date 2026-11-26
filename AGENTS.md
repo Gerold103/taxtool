@@ -43,10 +43,12 @@ must not import from or know about `src/taxtool/`. `src/taxtool/` owns
 events, logs, periods, the FIFO ledger and the command line.
 
 The data directory a user works in is not in this repository. Its layout:
-a `.tax/` directory holding config, object store, seals and authority
-material, next to `config.yaml`, `master.yaml`, `log/`, `docs/`,
-`periods/` and `templates/`. `ROADMAP.md` describes it; a generated example
-data set will return to the repository once the tool can produce it.
+a `.tax/` directory owned by taxtool, next to `config.yaml`,
+`master.yaml`, `log/`, `docs/`, `periods/` and `templates/`. Inside it,
+`.tax/.vault/` is owned by the vault: the object store, seals and proofs,
+authority configuration and material, the stat cache. `ROADMAP.md`
+describes it; a generated example data set will return to the repository
+once the tool can produce it.
 
 ### Working here
 
