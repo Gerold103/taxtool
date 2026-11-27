@@ -116,6 +116,23 @@ because they are the vocabulary of the module.
 - Modules and functions `snake_case`, classes `CapWords`, constants
   `UPPER_CASE`. Names say what the thing is, not its type: `manifest`, not
   `manifest_dict`.
+- A name is read at its call site, where the defining module is usually
+  not in view, so it must carry its meaning alone. A function names its
+  action and its object, and its subject when that is not obvious:
+  `write_tree`, `load_seal`, `classify_changes`, `query_proof_statuses`.
+  A type names what one instance is: `TreeEntry` and `CacheEntry`, never
+  two classes called `Entry`; `SealRecord`, not `Record`. A one-word name
+  such as `ask`, `load`, `by_name`, `local` or `broken` describes a mood
+  or a relation, not a thing, and is never used for anything another
+  module or a test can import; the few one-word functions that exist, such
+  as `scan_files` before it was renamed, were the reason this rule exists.
+  A method may be shorter because its object stands next to it at the call
+  site: `store.has(digest)` reads, a bare `has(digest)` does not. Test
+  fixtures and helpers follow the same rule: `local_authority`, not
+  `local`; `object_store(home)`, not `store(home)`. This is not a law of
+  word counts; it is the question "does a reader of the calling line know
+  what this is without opening the module?", and a one-word export needs
+  an answer to it.
 - One module, one topic. Split by topic, never by size: a line count has
   no value of its own.
 - Errors: raise specific exceptions from a small hierarchy per package
