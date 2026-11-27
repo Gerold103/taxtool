@@ -87,5 +87,5 @@ def parse_digest(path: Any, entry: Any) -> Digest:
         or not isinstance(entry.get("size"), int)
         or entry["size"] < 0
     ):
-        raise VaultError(f"manifest entry for {path!r} is malformed")
+        raise VaultError(f"digest entry for {path!r} is malformed")
     return Digest(entry["sha256"], entry["size"])
