@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from vault.authorities import Authority, Complete, check_root, check_time
+from vault.authorities import Authority, Complete, check_root_hash, check_time
 from vault.authorities.local_hmac import TOKEN_FILE, LocalHmacAuthority
 from vault.errors import VaultError
 from vault.hashing import digest_bytes
@@ -164,6 +164,6 @@ async def test_missing_key_file_fails(tmp_path: Path, proof_dir: Path) -> None:
 
 
 def test_check_helpers() -> None:
-    assert check_root(ROOT) == ROOT
+    assert check_root_hash(ROOT) == ROOT
     assert check_time(NOW) == NOW
     assert check_time(NOW.astimezone(timezone(timedelta(hours=5)))) == NOW

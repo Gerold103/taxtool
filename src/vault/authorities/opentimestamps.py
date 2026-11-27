@@ -26,7 +26,7 @@ from pathlib import Path
 
 import yaml
 
-from vault.authorities import Complete, Pending, check_root, check_time
+from vault.authorities import Complete, Pending, check_root_hash, check_time
 from vault.bitcoin.explorer import fetch_header
 from vault.bitcoin.header import BlockHeader
 from vault.errors import VaultError
@@ -148,7 +148,7 @@ class OpenTimestampsAuthority:
     # The protocol.
 
     async def stamp(self, root: str, now: datetime, proof_dir: Path) -> Pending:
-        digest = bytes.fromhex(check_root(root))
+        digest = bytes.fromhex(check_root_hash(root))
         since = check_time(now)
         try:
             proof = await calendar.submit(self.calendar, digest)
@@ -197,7 +197,7 @@ class OpenTimestampsAuthority:
         return await self.verify(root, proof_dir)
 
     def _verify(self, root: str, proof_dir: Path) -> Complete | Pending:
-        check_root(root)
+        check_root_hash(root)
         if (proof_dir / COMPLETE_FILE).is_file():
             proof = self._read_proof(proof_dir / COMPLETE_FILE, root)
             header = self._read_header(proof_dir)

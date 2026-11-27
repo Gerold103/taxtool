@@ -44,8 +44,8 @@ from vault.events import (
 from vault.hashing import Digest, digest_bytes, is_sha256_hex
 from vault.manifest import parse_digest
 from vault.objects import READ_ONLY, ObjectStore
-from vault.scan import scan
-from vault.tree import check_name
+from vault.scan import scan_files
+from vault.tree import check_path_component
 
 VERSION = 1
 OBJECTS_DIR = "objects"
@@ -55,7 +55,7 @@ CACHE_FILE = "cache"
 ID_WIDTH = 6
 
 
-def _parse_time(value: Any, what: str) -> datetime:
+def _parse_utc_time(value: Any, what: str) -> datetime:
     """A UTC time from YAML, written as a string or parsed as a timestamp
     by YAML itself when the string was not quoted."""
     if isinstance(value, str):
@@ -105,7 +105,7 @@ class SealRecord:
         if not isinstance(seal_id, int) or seal_id < 1:
             raise VaultError("seal record: id is not a positive integer")
         what = f"seal {seal_id}"
-        time = _parse_time(data.get("time"), what)
+        time = _parse_utc_time(data.get("time"), what)
         root = parse_digest("tree", data.get("tree"))
         previous = data.get("previous")
         if previous is not None and (
@@ -171,7 +171,7 @@ def proof_dir(seal: Seal, authority: str) -> Path:
     return seal.dir / PROOF_DIR / authority
 
 
-def ids(home: Path) -> list[int]:
+def seal_ids(home: Path) -> list[int]:
     """Ids of the seal directories present, ascending."""
     seals = home / SEALS_DIR
     if not seals.is_dir():
@@ -185,7 +185,7 @@ def ids(home: Path) -> list[int]:
     )
 
 
-def _load(home: Path, seal_id: int) -> Seal:
+def _load_seal(home: Path, seal_id: int) -> Seal:
     path = seal_dir(home, seal_id) / SEAL_FILE
     if not path.is_file():
         raise VaultError(f"seal {seal_id}: no record at {path}")
@@ -199,16 +199,16 @@ def _load(home: Path, seal_id: int) -> Seal:
     return Seal(record, digest_bytes(data).sha256, path.parent)
 
 
-async def load(home: Path, seal_id: int) -> Seal:
-    return await asyncio.to_thread(_load, home, seal_id)
+async def load_seal(home: Path, seal_id: int) -> Seal:
+    return await asyncio.to_thread(_load_seal, home, seal_id)
 
 
-async def latest(home: Path) -> Seal | None:
-    present = ids(home)
-    return await load(home, present[-1]) if present else None
+async def latest_seal(home: Path) -> Seal | None:
+    present = seal_ids(home)
+    return await load_seal(home, present[-1]) if present else None
 
 
-def _inside(root: Path, home: Path) -> PurePosixPath:
+def _home_relative_to_root(root: Path, home: Path) -> PurePosixPath:
     """The home directory relative to the data root, as a manifest key."""
     try:
         relative = home.resolve().relative_to(root.resolve())
@@ -219,17 +219,21 @@ def _inside(root: Path, home: Path) -> PurePosixPath:
     return check_home(PurePosixPath(relative.as_posix()))
 
 
-def _by_name(authorities: Sequence[Authority]) -> dict[str, Authority]:
-    by_name: dict[str, Authority] = {}
+def _authorities_by_name(
+    authorities: Sequence[Authority],
+) -> dict[str, Authority]:
+    """The authorities keyed by name; names are single path components
+    and unique, since each gets a proof directory."""
+    named: dict[str, Authority] = {}
     for authority in authorities:
-        check_name(authority.name)
-        if authority.name in by_name:
+        check_path_component(authority.name)
+        if authority.name in named:
             raise VaultError(f"two authorities are named {authority.name!r}")
-        by_name[authority.name] = authority
-    return by_name
+        named[authority.name] = authority
+    return named
 
 
-def _write_record(home: Path, record: SealRecord) -> Seal:
+def _write_seal_record(home: Path, record: SealRecord) -> Seal:
     directory = seal_dir(home, record.id)
     try:
         directory.mkdir(parents=True)
@@ -244,7 +248,7 @@ def _write_record(home: Path, record: SealRecord) -> Seal:
     return Seal(record, digest_bytes(data).sha256, directory)
 
 
-async def create(
+async def create_seal(
     root: Path,
     home: Path,
     authorities: Sequence[Authority],
@@ -262,23 +266,23 @@ async def create(
     """
     if not authorities:
         raise VaultError("sealing needs at least one authority")
-    by_name = _by_name(authorities)
-    inside = _inside(root, home)
+    named = _authorities_by_name(authorities)
+    inside = _home_relative_to_root(root, home)
     now = check_time(now)
     store = ObjectStore(home / OBJECTS_DIR)
-    manifest = await scan(
+    manifest = await scan_files(
         root,
         [*exclude, str(inside / OBJECTS_DIR), str(inside / CACHE_FILE)],
         home / CACHE_FILE,
     )
-    top = await tree.write(store, manifest)
-    before = await latest(home)
+    top = await tree.write_tree(store, manifest)
+    before = await latest_seal(home)
     seal_id = 1 if before is None else before.id + 1
     previous = None if before is None else before.root
-    record = SealRecord(seal_id, now, top, previous, tuple(by_name))
-    seal = await asyncio.to_thread(_write_record, home, record)
+    record = SealRecord(seal_id, now, top, previous, tuple(named))
+    seal = await asyncio.to_thread(_write_seal_record, home, record)
     proofs: dict[str, ProofStatus] = {}
-    for name, authority in by_name.items():
+    for name, authority in named.items():
         directory = proof_dir(seal, name)
         directory.mkdir(parents=True)
         try:
@@ -296,17 +300,17 @@ async def create(
     return SealStatus(seal, proofs)
 
 
-def _read_abandoned(directory: Path) -> Abandoned | None:
+def _read_abandoned_marker(directory: Path) -> Abandoned | None:
     path = directory / ABANDONED_FILE
     if not path.is_file():
         return None
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict) or not isinstance(data.get("why"), str):
         raise VaultError(f"{path} is malformed")
-    return Abandoned(_parse_time(data.get("time"), str(path)), data["why"])
+    return Abandoned(_parse_utc_time(data.get("time"), str(path)), data["why"])
 
 
-def _write_abandoned(directory: Path, marker: Abandoned) -> None:
+def _write_abandoned_marker(directory: Path, marker: Abandoned) -> None:
     if not directory.is_dir():
         raise VaultError(f"no proof directory {directory}")
     path = directory / ABANDONED_FILE
@@ -317,34 +321,34 @@ def _write_abandoned(directory: Path, marker: Abandoned) -> None:
     os.chmod(path, READ_ONLY)
 
 
-async def abandon(
+async def abandon_proof(
     home: Path, seal_id: int, authority: str, now: datetime, why: str
 ) -> Abandoned:
     """Give up the proof of `authority` for seal `seal_id` by writing the
-    marker file; `complete` skips it from then on."""
+    marker file; `complete_proofs` skips it from then on."""
     if not why.strip():
         raise VaultError("abandoning a proof needs a reason")
-    seal = await load(home, seal_id)
+    seal = await load_seal(home, seal_id)
     if authority not in seal.record.authorities:
         raise VaultError(f"seal {seal_id} did not ask authority {authority!r}")
     marker = Abandoned(check_time(now), why)
     await asyncio.to_thread(
-        _write_abandoned, proof_dir(seal, authority), marker
+        _write_abandoned_marker, proof_dir(seal, authority), marker
     )
     return marker
 
 
-async def _complete_one(
-    seal: Seal, by_name: Mapping[str, Authority]
+async def _query_proof_statuses(
+    seal: Seal, named: Mapping[str, Authority]
 ) -> SealStatus:
     proofs: dict[str, ProofStatus] = {}
     for name in seal.record.authorities:
         directory = proof_dir(seal, name)
-        marker = await asyncio.to_thread(_read_abandoned, directory)
+        marker = await asyncio.to_thread(_read_abandoned_marker, directory)
         if marker is not None:
             proofs[name] = marker
             continue
-        authority = by_name.get(name)
+        authority = named.get(name)
         if authority is None:
             proofs[name] = Failed(f"authority {name!r} is not configured")
             continue
@@ -355,15 +359,15 @@ async def _complete_one(
     return SealStatus(seal, proofs)
 
 
-async def complete(
+async def complete_proofs(
     home: Path, authorities: Sequence[Authority], seal_id: int | None = None
 ) -> list[SealStatus]:
     """Ask every authority of one seal, or of every seal, to finish its
     proof; abandoned proofs are reported as such and not asked."""
-    by_name = _by_name(authorities)
-    chosen = ids(home) if seal_id is None else [seal_id]
+    named = _authorities_by_name(authorities)
+    chosen = seal_ids(home) if seal_id is None else [seal_id]
     statuses = []
     for chosen_id in chosen:
-        seal = await load(home, chosen_id)
-        statuses.append(await _complete_one(seal, by_name))
+        seal = await load_seal(home, chosen_id)
+        statuses.append(await _query_proof_statuses(seal, named))
     return statuses

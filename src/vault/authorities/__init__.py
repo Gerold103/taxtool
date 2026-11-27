@@ -55,7 +55,7 @@ class Authority(Protocol):
         VaultError saying what is wrong if it does not hold."""
 
 
-def check_root(root: str) -> str:
+def check_root_hash(root: str) -> str:
     if not is_sha256_hex(root):
         raise VaultError(f"root hash is not a sha256 hex digest: {root!r}")
     return root

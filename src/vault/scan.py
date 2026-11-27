@@ -14,23 +14,28 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from vault.cache import Entry, StatCache, load, save
+from vault.cache import (
+    CacheEntry,
+    StatCache,
+    load_stat_cache,
+    save_stat_cache,
+)
 from vault.errors import VaultError
 from vault.hashing import Digest, digest_prefix, digest_stream
 from vault.manifest import Manifest, check_relpath
 
 
-def _excluded(rel: str, exclude: Collection[str]) -> bool:
+def _is_excluded(rel: str, exclude: Collection[str]) -> bool:
     return any(rel == e or rel.startswith(e + "/") for e in exclude)
 
 
-def _collect(
+def _collect_files(
     root: Path, exclude: Collection[str]
 ) -> list[tuple[str, Path, os.stat_result]]:
     found: list[tuple[str, Path, os.stat_result]] = []
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(root).as_posix()
-        if _excluded(rel, exclude):
+        if _is_excluded(rel, exclude):
             continue
         st = path.lstat()
         if stat.S_ISLNK(st.st_mode):
@@ -43,25 +48,27 @@ def _collect(
     return found
 
 
-def _scan(root: Path, exclude: Collection[str], cache: Path | None) -> Manifest:
+def _scan_files(
+    root: Path, exclude: Collection[str], cache: Path | None
+) -> Manifest:
     if not root.is_dir():
         raise VaultError(f"{root}: not a directory")
     for entry in exclude:
         check_relpath(entry)
     started_ns = time.time_ns()
-    known = load(cache) if cache else StatCache()
+    known = load_stat_cache(cache) if cache else StatCache()
     files: dict[str, Digest] = {}
-    entries: dict[str, Entry] = {}
-    for rel, path, st in _collect(root, exclude):
+    entries: dict[str, CacheEntry] = {}
+    for rel, path, st in _collect_files(root, exclude):
         digest = known.lookup(rel, st) or digest_stream(path, None)
         files[rel] = digest
-        entries[rel] = Entry(st.st_size, st.st_mtime_ns, digest.sha256)
+        entries[rel] = CacheEntry(st.st_size, st.st_mtime_ns, digest.sha256)
     if cache:
-        save(cache, StatCache(started_ns, entries))
+        save_stat_cache(cache, StatCache(started_ns, entries))
     return Manifest(files)
 
 
-async def scan(
+async def scan_files(
     root: Path, exclude: Collection[str] = (), cache: Path | None = None
 ) -> Manifest:
     """Hash every regular file under root, except excluded paths.
@@ -73,7 +80,7 @@ async def scan(
     whose size and mtime are unchanged since the previous scan are reused
     and the file is rewritten for the next one; see vault.cache.
     """
-    return await asyncio.to_thread(_scan, root, exclude, cache)
+    return await asyncio.to_thread(_scan_files, root, exclude, cache)
 
 
 @dataclass(frozen=True)
@@ -98,7 +105,9 @@ class Changes:
         )
 
 
-async def changes(root: Path, old: Manifest, new: Manifest) -> Changes:
+async def compare_manifests(
+    root: Path, old: Manifest, new: Manifest
+) -> Changes:
     """Compare two manifests of `root`; `new` must describe its current
     files, since appends are confirmed by hashing the file's prefix."""
     added = {p: d for p, d in new.files.items() if p not in old.files}

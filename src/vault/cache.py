@@ -27,12 +27,12 @@ from vault.errors import VaultError
 from vault.hashing import Digest, is_sha256_hex
 from vault.manifest import check_relpath
 
-HEADER = "vault-stat-cache"
+CACHE_HEADER = "vault-stat-cache"
 VERSION = 1
 
 
 @dataclass(frozen=True)
-class Entry:
+class CacheEntry:
     """What was known about one file when it was last hashed."""
 
     size: int
@@ -45,7 +45,7 @@ class StatCache:
     """Entries of the previous scan and the time that scan started."""
 
     started_ns: int = 0
-    entries: Mapping[str, Entry] = field(default_factory=dict)
+    entries: Mapping[str, CacheEntry] = field(default_factory=dict)
 
     def lookup(self, rel: str, st: os.stat_result) -> Digest | None:
         """The remembered digest if `st` still identifies the same file."""
@@ -60,14 +60,14 @@ class StatCache:
         return Digest(entry.sha256, entry.size)
 
 
-def _parse_entry(line: str) -> tuple[str, Entry]:
+def _parse_entry(line: str) -> tuple[str, CacheEntry]:
     sha256, size, mtime_ns, rel = line.split(" ", 3)
     if not is_sha256_hex(sha256):
         raise ValueError(sha256)
-    return check_relpath(rel), Entry(int(size), int(mtime_ns), sha256)
+    return check_relpath(rel), CacheEntry(int(size), int(mtime_ns), sha256)
 
 
-def load(path: Path) -> StatCache:
+def load_stat_cache(path: Path) -> StatCache:
     """Blocking read; a missing file is an empty cache, a malformed one
     is an error, since the fix (delete it) must be the user's choice."""
     if not path.is_file():
@@ -75,7 +75,7 @@ def load(path: Path) -> StatCache:
     try:
         header, *lines = path.read_text(encoding="utf-8").splitlines()
         name, version, started_ns = header.split(" ")
-        if name != HEADER or int(version) != VERSION:
+        if name != CACHE_HEADER or int(version) != VERSION:
             raise ValueError(header)
         entries = dict(_parse_entry(line) for line in lines)
         return StatCache(int(started_ns), entries)
@@ -85,9 +85,9 @@ def load(path: Path) -> StatCache:
         ) from exc
 
 
-def save(path: Path, cache: StatCache) -> None:
+def save_stat_cache(path: Path, cache: StatCache) -> None:
     """Blocking atomic write."""
-    lines = [f"{HEADER} {VERSION} {cache.started_ns}"]
+    lines = [f"{CACHE_HEADER} {VERSION} {cache.started_ns}"]
     for rel in sorted(cache.entries):
         e = cache.entries[rel]
         lines.append(f"{e.sha256} {e.size} {e.mtime_ns} {rel}")

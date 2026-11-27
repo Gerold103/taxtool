@@ -13,7 +13,7 @@ from pathlib import Path
 
 import yaml
 
-from vault.authorities import Complete, check_root, check_time
+from vault.authorities import Complete, check_root_hash, check_time
 from vault.errors import VaultError
 
 TYPE = "local-hmac-sha256"
@@ -57,7 +57,7 @@ class LocalHmacAuthority:
         token = {
             "authority": self.name,
             "type": TYPE,
-            "hash": check_root(root),
+            "hash": check_root_hash(root),
             "time": time,
             "message": "sha256 hex, newline, time, newline",
             "mac": self._mac(root, time),
@@ -84,7 +84,7 @@ class LocalHmacAuthority:
         token = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(token, dict) or token.get("type") != TYPE:
             raise VaultError(f"authority {self.name}: {path} is not a {TYPE}")
-        if token.get("hash") != check_root(root):
+        if token.get("hash") != check_root_hash(root):
             raise VaultError(
                 f"authority {self.name}: {path} is for hash "
                 f"{token.get('hash')}, not {root}"

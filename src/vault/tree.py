@@ -31,20 +31,20 @@ from vault.objects import ObjectStore
 VERSION = 1
 
 
-class Kind(StrEnum):
+class EntryKind(StrEnum):
     FILE = "file"
     TREE = "tree"
 
 
 @dataclass(frozen=True)
-class Entry:
+class TreeEntry:
     """What one name in a directory points at."""
 
-    kind: Kind
+    kind: EntryKind
     digest: Digest
 
 
-def check_name(name: str) -> str:
+def check_path_component(name: str) -> str:
     """One path component: a clean relative path without a separator."""
     check_relpath(name)
     if "/" in name:
@@ -54,12 +54,15 @@ def check_name(name: str) -> str:
 
 @dataclass(frozen=True)
 class Tree:
-    """Name -> Entry for the direct children of one directory."""
+    """Name -> TreeEntry for the direct children of one directory."""
 
-    entries: Mapping[str, Entry] = field(default_factory=dict)
+    entries: Mapping[str, TreeEntry] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        ordered = {check_name(n): self.entries[n] for n in sorted(self.entries)}
+        ordered = {
+            check_path_component(n): self.entries[n]
+            for n in sorted(self.entries)
+        }
         object.__setattr__(self, "entries", ordered)
 
     def to_yaml(self) -> str:
@@ -96,24 +99,24 @@ class Tree:
             entries = {}
         if not isinstance(entries, dict):
             raise VaultError("not a tree object: entries is not a mapping")
-        return cls({str(n): _entry_from(n, e) for n, e in entries.items()})
+        return cls({str(n): _entry_from_yaml(n, e) for n, e in entries.items()})
 
 
-def _entry_from(name: Any, entry: Any) -> Entry:
+def _entry_from_yaml(name: Any, entry: Any) -> TreeEntry:
     digest = parse_digest(name, entry)
     try:
-        kind = Kind(entry.get("kind"))
+        kind = EntryKind(entry.get("kind"))
     except ValueError:
         raise VaultError(
             f"tree entry for {name!r} has an unknown kind"
         ) from None
-    return Entry(kind, digest)
+    return TreeEntry(kind, digest)
 
 
 type Listing = dict[str, Digest | Listing]
 
 
-def _nest(manifest: Manifest) -> Listing:
+def _nest_paths(manifest: Manifest) -> Listing:
     """Group the flat paths of a Manifest by directory."""
     root: Listing = {}
     for path, digest in manifest.files.items():
@@ -128,22 +131,24 @@ def _nest(manifest: Manifest) -> Listing:
     return root
 
 
-async def _write(store: ObjectStore, listing: Listing) -> Digest:
-    entries: dict[str, Entry] = {}
+async def _write_listing(store: ObjectStore, listing: Listing) -> Digest:
+    entries: dict[str, TreeEntry] = {}
     for name, item in listing.items():
         if isinstance(item, dict):
-            entries[name] = Entry(Kind.TREE, await _write(store, item))
+            entries[name] = TreeEntry(
+                EntryKind.TREE, await _write_listing(store, item)
+            )
         else:
-            entries[name] = Entry(Kind.FILE, item)
+            entries[name] = TreeEntry(EntryKind.FILE, item)
     return await store.put_bytes(Tree(entries).to_yaml().encode())
 
 
-async def write(store: ObjectStore, manifest: Manifest) -> Digest:
+async def write_tree(store: ObjectStore, manifest: Manifest) -> Digest:
     """Store the Manifest as tree objects; return the root tree's Digest."""
-    return await _write(store, _nest(manifest))
+    return await _write_listing(store, _nest_paths(manifest))
 
 
-async def _read(
+async def _read_listing(
     store: ObjectStore, digest: Digest, prefix: str, files: dict[str, Digest]
 ) -> None:
     data = await store.get(digest.sha256)
@@ -162,14 +167,14 @@ async def _read(
     tree = Tree.from_yaml(text)
     for name, entry in tree.entries.items():
         path = prefix + name
-        if entry.kind is Kind.TREE:
-            await _read(store, entry.digest, path + "/", files)
+        if entry.kind is EntryKind.TREE:
+            await _read_listing(store, entry.digest, path + "/", files)
         else:
             files[path] = entry.digest
 
 
-async def read(store: ObjectStore, root: Digest) -> Manifest:
+async def read_tree(store: ObjectStore, root: Digest) -> Manifest:
     """Rebuild the Manifest below a root tree, checking every object."""
     files: dict[str, Digest] = {}
-    await _read(store, root, "", files)
+    await _read_listing(store, root, "", files)
     return Manifest(files)

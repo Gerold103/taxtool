@@ -6,7 +6,7 @@ import pytest
 from vault.errors import VaultError
 from vault.hashing import Digest, digest_bytes
 from vault.manifest import Manifest
-from vault.scan import Changes, changes, scan
+from vault.scan import Changes, compare_manifests, scan_files
 
 A = digest_bytes(b"a")
 B = digest_bytes(b"b")
@@ -27,7 +27,7 @@ async def test_scan_hashes_every_regular_file(tmp_path: Path) -> None:
     }
     populate(tmp_path, files)
     (tmp_path / "empty_dir").mkdir()
-    manifest = await scan(tmp_path)
+    manifest = await scan_files(tmp_path)
     assert manifest == Manifest(
         {rel: digest_bytes(data) for rel, data in files.items()}
     )
@@ -48,7 +48,7 @@ async def test_scan_excludes_files_and_whole_directories(
         },
     )
     exclude = {".vault", "README.md", "periods/2025"}
-    manifest = await scan(tmp_path, exclude)
+    manifest = await scan_files(tmp_path, exclude)
     assert list(manifest.files) == [
         "README.md.bak",
         "docs/a.pdf",
@@ -66,41 +66,43 @@ async def test_non_ascii_names_survive_scan_yaml_and_cache(
     }
     populate(tmp_path, files)
     cache = tmp_path / "state" / "cache"
-    manifest = await scan(tmp_path, exclude={"state"}, cache=cache)
+    manifest = await scan_files(tmp_path, exclude={"state"}, cache=cache)
     assert set(manifest.files) == set(files)
     text = manifest.to_yaml()
     assert "Rechnung Müller GmbH.pdf" in text
     assert "Счёт № 7.pdf" in text
     assert Manifest.from_yaml(text) == manifest
-    assert await scan(tmp_path, exclude={"state"}, cache=cache) == manifest
-    assert not await changes(tmp_path, manifest, manifest)
+    assert (
+        await scan_files(tmp_path, exclude={"state"}, cache=cache) == manifest
+    )
+    assert not await compare_manifests(tmp_path, manifest, manifest)
 
 
 async def test_scan_rejects_unclean_exclude(tmp_path: Path) -> None:
     with pytest.raises(VaultError, match="clean relative path"):
-        await scan(tmp_path, {"../outside"})
+        await scan_files(tmp_path, {"../outside"})
 
 
 async def test_scan_of_empty_directory(tmp_path: Path) -> None:
-    assert await scan(tmp_path) == Manifest()
+    assert await scan_files(tmp_path) == Manifest()
 
 
 async def test_scan_rejects_symlink(tmp_path: Path) -> None:
     populate(tmp_path, {"real.txt": b"x"})
     (tmp_path / "link.txt").symlink_to(tmp_path / "real.txt")
     with pytest.raises(VaultError, match="symlinks are not allowed"):
-        await scan(tmp_path)
+        await scan_files(tmp_path)
 
 
 async def test_scan_rejects_special_file(tmp_path: Path) -> None:
     os.mkfifo(tmp_path / "pipe")
     with pytest.raises(VaultError, match="not a regular file"):
-        await scan(tmp_path)
+        await scan_files(tmp_path)
 
 
 async def test_scan_of_missing_directory_fails(tmp_path: Path) -> None:
     with pytest.raises(VaultError, match="not a directory"):
-        await scan(tmp_path / "nowhere")
+        await scan_files(tmp_path / "nowhere")
 
 
 async def test_changes_reports_all_four_kinds(tmp_path: Path) -> None:
@@ -112,7 +114,7 @@ async def test_changes_reports_all_four_kinds(tmp_path: Path) -> None:
         "keep.txt": b"keep",
     }
     populate(tmp_path, before)
-    old = await scan(tmp_path)
+    old = await scan_files(tmp_path)
     populate(
         tmp_path,
         {
@@ -123,8 +125,8 @@ async def test_changes_reports_all_four_kinds(tmp_path: Path) -> None:
         },
     )
     (tmp_path / "notes.txt").unlink()
-    new = await scan(tmp_path)
-    result = await changes(tmp_path, old, new)
+    new = await scan_files(tmp_path)
+    result = await compare_manifests(tmp_path, old, new)
 
     def pair(rel: str) -> tuple[Digest, Digest]:
         return (old.files[rel], new.files[rel])
@@ -152,10 +154,10 @@ async def test_truncated_file_is_a_rewrite_not_an_append(
     tmp_path: Path,
 ) -> None:
     populate(tmp_path, {"log/l.yaml": b"events:\n- a\n- b\n"})
-    old = await scan(tmp_path)
+    old = await scan_files(tmp_path)
     populate(tmp_path, {"log/l.yaml": b"events:\n- a\n"})
-    new = await scan(tmp_path)
-    result = await changes(tmp_path, old, new)
+    new = await scan_files(tmp_path)
+    result = await compare_manifests(tmp_path, old, new)
     assert list(result.changed) == ["log/l.yaml"]
     assert not result.appended
 
@@ -164,25 +166,25 @@ async def test_grown_file_with_edited_prefix_is_a_rewrite(
     tmp_path: Path,
 ) -> None:
     populate(tmp_path, {"log/l.yaml": b"events:\n- a\n"})
-    old = await scan(tmp_path)
+    old = await scan_files(tmp_path)
     populate(tmp_path, {"log/l.yaml": b"events:\n- A\n- b\n"})
-    new = await scan(tmp_path)
-    result = await changes(tmp_path, old, new)
+    new = await scan_files(tmp_path)
+    result = await compare_manifests(tmp_path, old, new)
     assert list(result.changed) == ["log/l.yaml"]
     assert not result.appended
 
 
 async def test_no_changes_is_falsy(tmp_path: Path) -> None:
     populate(tmp_path, {"a": b"a"})
-    manifest = await scan(tmp_path)
-    result = await changes(tmp_path, manifest, manifest)
+    manifest = await scan_files(tmp_path)
+    result = await compare_manifests(tmp_path, manifest, manifest)
     assert not result
     assert result.paths() == []
 
 
 async def test_changes_compare_size_as_well_as_hash(tmp_path: Path) -> None:
     populate(tmp_path, {"a": b"a"})
-    new = await scan(tmp_path)
+    new = await scan_files(tmp_path)
     old = Manifest({"a": Digest(A.sha256, 5)})
-    result = await changes(tmp_path, old, new)
+    result = await compare_manifests(tmp_path, old, new)
     assert list(result.changed) == ["a"]

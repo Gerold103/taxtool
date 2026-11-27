@@ -16,7 +16,7 @@ from pathlib import Path
 
 import aiohttp
 
-from vault.authorities import Complete, check_root
+from vault.authorities import Complete, check_root_hash
 from vault.errors import VaultError
 
 QUERY_FILE = "request.tsq"
@@ -98,7 +98,7 @@ class Rfc3161Authority:
     async def stamp(
         self, root: str, now: datetime, proof_dir: Path
     ) -> Complete:
-        check_root(root)
+        check_root_hash(root)
         query_path = proof_dir / QUERY_FILE
         token_path = proof_dir / TOKEN_FILE
         await self._openssl(
@@ -115,7 +115,7 @@ class Rfc3161Authority:
         return await self.verify(root, proof_dir)
 
     async def verify(self, root: str, proof_dir: Path) -> Complete:
-        check_root(root)
+        check_root_hash(root)
         token_path = proof_dir / TOKEN_FILE
         if not token_path.is_file():
             raise self._error(f"no proof at {token_path}")
