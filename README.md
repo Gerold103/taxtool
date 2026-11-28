@@ -51,7 +51,9 @@ way you would run `git`.
 - `src/taxtool/` the application: event types, logs, periods, FIFO ledger,
   command line.
 - `test/` pytest suite.
-- `ROADMAP.md` the agreed design and the phases of the plan.
+- `doc/tax/` the design of a business directory and of documents;
+  `doc/vault/` the design of the vault's home inside it.
+- `ROADMAP.md` the agreed design decisions and the phases of the plan.
 - `doc/agents/` contributor rules for code style, tests and commits,
   written for coding agents but equally valid for people. `AGENTS.md` is
   the entry point.

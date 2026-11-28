@@ -27,15 +27,19 @@ and nobody re-derives them. `doc/risks.md` holds what they prove.
   file's hash in exactly one seal, where one lost record hides an
   alteration. Deduplication lives in the store, below the proof, so the
   storage encoding can change later without touching any seal.
-- There is one object store, `.tax/.vault/objects/`, for taxtool's
-  document blobs and the vault's tree objects. Its contents are reached
-  by hash from seals and logs, which is why the scan excludes it. Nothing
+- There is one object store, `.tax/.vault/objects/`, holding the bytes
+  of every file a seal lists and the tree objects that list them, so the
+  store is a full copy of the business directory plus every past version
+  of a changed file, deduplicated by hash. Its contents are reached by
+  hash from the seals' trees, which is why the scan excludes it. Nothing
   in it is deleted before phase 2, where `gc` keeps whatever any seal's
-  root or any document reference still reaches.
+  tree still reaches. Refs, names pinning blobs, were considered and
+  dropped: an event's path plus the covering seal's tree is the same
+  binding, and the tree pins the bytes.
 - Phase 2 builds on the trees: `checkout` rebuilds the data root as it
-  was at a seal from the trees, the store and truncated logs, for which
-  `seal` stores a copy of every changed file that is not an append of
-  its previous version. `diff` shows the content difference between two
+  was at a seal from the trees and the store, and `reset --hard` does
+  the same in place for the last seal. `diff` shows the content
+  difference between two
   seals, or a seal and the working tree: line by line for text files
   such as logs and config, by hash and size for documents, not merely
   which paths changed and what event that is. `archive` and `expire`
@@ -59,16 +63,23 @@ and nobody re-derives them. `doc/risks.md` holds what they prove.
   "existed no later than this block" bound. Both are wanted on a seal.
 
 ## Phase 1: records and seals
-- `init`, `doc add`, `check`, `status`, `rotate`, `seal`, `verify`.
+- `init`, `check`, `status`, `seal`, `verify`, `reset`.
+- Documents as entries of typed owner's files whose copies the vault
+  keeps, classified through a stage that `seal` turns into events:
+  `add document`, `rm document`, `reset`, `doc list`, `doc show`,
+  `doc export`; see `doc/tax/documents.md`.
 - Manual event entry from `templates/`.
 - Local HMAC, RFC 3161 and OpenTimestamps authorities; `seal complete`
   and abandoned-proof markers.
-- `periods/index.yaml`, manifests, `state.yaml` with FIFO lots.
-- `.taxignore` at the data root, one relative path per line, created by
-  `init` with the human files (`README.md`, `HOWTO.md`, `templates/`).
-  Users extend it at their own risk. `.taxignore` itself is sealed so
-  additions show up as changes. Exact paths only; no globs until someone
-  needs them.
+- The business directory as `doc/tax/layout.md` lays it out: the
+  owner's files in any layout, `.taxignore`, and `.tax/` with
+  `README.md`, `master/`, `logs/` by day and `templates/`. No period
+  directories: periods are date ranges over the logs, and the FIFO
+  ledger is replayed from them.
+- `.taxignore` at the data root, one relative path per line, created
+  empty by `init`. The file and the paths it names are left out of seals;
+  listing a path is the same as keeping the file outside the business
+  directory. Exact paths only; no globs until someone needs them.
 
 ## Phase 2: hand-over and housekeeping
 - `export csv` in the consultant's two-table layout; `export euer`;

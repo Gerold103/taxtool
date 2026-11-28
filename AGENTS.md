@@ -33,6 +33,8 @@ src/vault/               storage layer, no tax knowledge
 src/taxtool/             application layer on top of vault
 test/                    pytest suite mirroring src/
 doc/agents/              task-specific guidance, see below
+doc/tax/                 design of the business directory and documents
+doc/vault/               design of the vault's home
 doc/risks.md             what seals prove and every known way around them
 sandbox/                 scratch, ignored by git; sandbox/var/ for temp
 ROADMAP.md               agreed design and phases
@@ -42,13 +44,14 @@ ROADMAP.md               agreed design and phases
 must not import from or know about `src/taxtool/`. `src/taxtool/` owns
 events, logs, periods, the FIFO ledger and the command line.
 
-The data directory a user works in is not in this repository. Its layout:
-a `.tax/` directory owned by taxtool, next to `config.yaml`,
-`master.yaml`, `log/`, `docs/`, `periods/` and `templates/`. Inside it,
-`.tax/.vault/` is owned by the vault: the object store, seals and proofs,
-authority configuration and material, the stat cache. `ROADMAP.md`
-describes it; a generated example data set will return to the repository
-once the tool can produce it.
+The data directory a user works in is not in this repository.
+`doc/tax/layout.md` describes it, with who owns and writes each part:
+the owner's files in any layout, and taxtool's `.taxignore` and `.tax/`.
+`doc/vault/layout.md` describes the vault's home `.tax/.vault/` inside
+it, `doc/tax/master.md` the master data files field by field, and
+`doc/tax/documents.md` the documents, their events and their commands. A
+generated example data set will return to the repository once the tool
+can produce it.
 
 ### Working here
 
